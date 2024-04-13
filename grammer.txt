@@ -1,0 +1,31 @@
+statement ::= style | mixin_def | alias_def
+style ::= css_selector ['using' identifier_list] style_block
+
+css_selector ::= css_single_selector (',' css_single_selector)*
+css_single_selector ::= css_selector_sequence (css_combinator css_selector_sequence)*
+css_combinator ::= '+' | '~' | '>'
+css_selector_sequence ::= css_type_selector? css_id_selector? css_class_selector* css_attribute_selector* css_pseudo_class? css_pseudo_element?
+css_type_selector ::= ELEMENT | '*'
+css_id_selector ::= '#' IDENTIFIER
+css_class_selector ::= '.' CHAINABLE_IDENTIFIER
+css_attribute_selector ::= '[' css_attribute ']'
+css_attribute ::= IDENTIFIER (('=' | '|=' | '$=' | '^=' | '*=') (IDENTIFIER | STRING))?
+css_pseudo_class ::= ':' IDENTIFIER ('(' (IDENTIFIER | STRING)? ')')?
+css_pseudo_element ::= '::' IDENTIFIER
+
+child_style ::= css_combinator? style
+style_block ::= '{' property_list SEPARATOR? '}'
+property_list ::= (property | child_style) (SEPARATOR (property | style_block))*
+property ::= PROPERTY ':' ANY* SEPARATOR
+
+mixin_def ::= 'mixin' IDENTIFIER style_block
+alias_def ::= 'alias' css_selector 'as' IDENTIFIER
+
+identifier_list ::= IDENTIFIER (',' IDENTIFIER)*
+
+
+IDENTIFIER = anything named
+ELEMENT = HTML element
+PROPERTY = CSS property
+ANY = anything
+SEPARATOR = new line or ';'
