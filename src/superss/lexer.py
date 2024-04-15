@@ -49,6 +49,8 @@ ELEMENTS = load_html_elements()
 PROPERTIES = load_css_properties()
 STYLE_BEGIN = [TokenType.HTML_ELEMENT, TokenType.CLASS_PREFIX, TokenType.ID_PREFIX, TokenType.STAR]
 COMBINATORS = [TokenType.BEFORE, TokenType.AFTER, TokenType.CHILD]
+ATTRIBUTE_OPERATORS = [TokenType.ATTR_EQUALS, TokenType.ATTR_CONTAINS, TokenType.ATTR_CONTAINS_WORD,
+                       TokenType.ATTR_STARTS_WITH_WORD, TokenType.ATTR_ENDS_WITH, TokenType.ATTR_STARTS_WITH]
 
 
 class Token:
@@ -60,7 +62,7 @@ class Token:
 
     def __str__(self) -> str:
         return f'Token({self.type}: {repr(self.value)}' + (
-            f' at {self.line + 1}:{self.column + 1})' if self.line is not None and self.column is not None else '')
+            f' at {self.line + 1}:{self.column + 1})' if self.line is not None and self.column is not None else ')')
 
     def __repr__(self) -> str:
         return self.__str__()

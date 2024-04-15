@@ -1,6 +1,8 @@
 from typing import List, Tuple, TYPE_CHECKING
+from collections.abc import Iterable
 
-from src.superss import Token, TokenType, STYLE_BEGIN, COMBINATORS
+from src.superss import Token, TokenType, STYLE_BEGIN, COMBINATORS, ATTRIBUTE_OPERATORS
+
 if TYPE_CHECKING:
     from src.superss import Compiler
 
@@ -120,12 +122,14 @@ class SingleSelectorNode(CSSNode):
                  combinator_selector_list: 'List[Tuple[Token, SelectorSequenceNode]]',
                  parent_combinator: 'Token | None',
                  pseudo_class_identifier: 'Token | None',
-                 pseudo_element_identifier: 'Token | None'):
+                 pseudo_element_identifier: 'Token | None',
+                 attribute_selectors: 'List[AttributeSelectorNode] | None'):
         self.first_selector_sequence_node: 'SelectorSequenceNode' = first_selector_sequence_node
         self.combinator_selector_list: 'List[Tuple[Token, SelectorSequenceNode]]' = combinator_selector_list
         self.parent_combinator: 'Token | None' = parent_combinator
         self.pseudo_class_identifier: 'Token | None' = pseudo_class_identifier
         self.pseudo_element_identifier: 'Token | None' = pseudo_element_identifier
+        self.attribute_selectors: 'List[AttributeSelectorNode] | None' = attribute_selectors
 
     def parse_css(self, compiler: 'Compiler' = None) -> str:
         combinator = self.parent_combinator.value if self.parent_combinator is not None else ''
@@ -137,6 +141,8 @@ class SingleSelectorNode(CSSNode):
             css += ':' + self.pseudo_class_identifier.value
         if self.pseudo_element_identifier is not None:
             css += '::' + self.pseudo_element_identifier.value
+        for attr in self.attribute_selectors:
+            css += attr.parse_css(compiler)
         return css
 
     def parse_min_css(self, compiler: 'Compiler' = None) -> str:
@@ -149,7 +155,24 @@ class SingleSelectorNode(CSSNode):
             css += ':' + self.pseudo_class_identifier.value
         if self.pseudo_element_identifier is not None:
             css += '::' + self.pseudo_element_identifier.value
+        for attr in self.attribute_selectors:
+            css += attr.parse_min_css(compiler)
         return css
+
+
+class AttributeSelectorNode(CSSNode):
+    def __init__(self, attribute: Token, operator: Token, value: Token):
+        self.attribute = attribute
+        self.operator = operator
+        self.value = value
+
+    def parse_css(self, compiler: 'Compiler' = None) -> str:
+        value = f'"{self.value.value}"' if self.value.type == TokenType.STRING else self.value.value
+        return f'[{self.attribute.value} {self.operator.value} {value}]'
+
+    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
+        value = f'"{self.value.value}"' if self.value.type == TokenType.STRING else self.value.value
+        return f'[{self.attribute.value}{self.operator.value}{value}]'
 
 
 class SelectorSequenceNode(CSSNode):
@@ -195,8 +218,9 @@ class Parser:
     def current_token(self) -> Token | None:
         return self.tokens[self.index] if self.index < len(self.tokens) else None
 
-    def _type_check_and_advance(self, token_type: TokenType | None = None):
-        if token_type is None or self.current_token.type == token_type:
+    def _type_check_and_advance(self, token_type: TokenType | Iterable[TokenType] | None = None):
+        if (token_type is None or self.current_token.type == token_type or
+                (isinstance(token_type, Iterable) and self.current_token.type in token_type)):
             self.index += 1
         else:
             raise ValueError(f'Expected {token_type}, got {self.current_token}')
@@ -282,20 +306,32 @@ class Parser:
         pseudo_class_identifier = pseudo_element_identifier = None
 
         if self.current_token.type == TokenType.SINGLE_COLON:
-            print('single')
             self._type_check_and_advance()
             pseudo_class_identifier = self.current_token
             self._type_check_and_advance(TokenType.IDENTIFIER)
 
         if self.current_token.type == TokenType.PSEUDO_ELEMENT:
-            print('double')
             self._type_check_and_advance()
             pseudo_element_identifier = self.current_token
             self._type_check_and_advance(TokenType.IDENTIFIER)
 
-        print(self.current_token)
+        attr_selectors = []
+        while self.current_token.type == TokenType.SQUARE_L:
+            attr_selectors.append(self._make_attribute_selector_node())
+
         return SingleSelectorNode(first_node, pairs, parent_combinator, pseudo_class_identifier,
-                                  pseudo_element_identifier)
+                                  pseudo_element_identifier, attr_selectors)
+
+    def _make_attribute_selector_node(self) -> AttributeSelectorNode:
+        self._type_check_and_advance(TokenType.SQUARE_L)
+        attr = self.current_token
+        self._type_check_and_advance(TokenType.IDENTIFIER)
+        op = self.current_token
+        self._type_check_and_advance(ATTRIBUTE_OPERATORS)
+        val = self.current_token
+        self._type_check_and_advance((TokenType.STRING, TokenType.IDENTIFIER))
+        self._type_check_and_advance(TokenType.SQUARE_R)
+        return AttributeSelectorNode(attr, op, val)
 
     def _make_selector_sequence_node(self) -> SelectorSequenceNode:
         tokens = []
