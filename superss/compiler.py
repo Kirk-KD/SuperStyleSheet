@@ -1,6 +1,6 @@
 from typing import Dict
 
-from src.superss import RootNode, StyleBodyNode, MixinDefNode
+from superss import RootNode, StyleBodyNode, MixinDefNode
 
 
 class Compiler:

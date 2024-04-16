@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import Any, List
+from typing import Any, List, Tuple
 
-from src.superss.util import load_html_elements, load_css_properties, make_keywords_dict
+from superss.util import load_html_elements, load_css_properties, make_keywords_dict
 
 
 class TokenType(Enum):
@@ -73,13 +73,18 @@ class Token:
 
 
 class Lexer:
-    def __init__(self, text: str):
+    def __init__(self, text: str, keep_eof: bool = True):
         self.text: str = text
         self.index: int = 0
         self.line: int = 0
         self.column: int = 0
+        self.keep_eof: bool = keep_eof
 
         self.tokens: List[Token] = []
+        self.token_types: List[TokenType] = []
+        self.token_values: List[Any] = []
+        self.token_pairs: List[Tuple[TokenType, Any]] = []
+        self._parse_tokens()
 
     @property
     def current_char(self) -> str:
@@ -101,11 +106,12 @@ class Lexer:
         if self.index < len(self.text):
             self.column += 1
 
-    def parse_tokens(self):
+    def _parse_tokens(self):
         self._parse_next_token()
         while len(self.tokens) and self.tokens[-1].is_not_eof:
             self._parse_next_token()
 
+        # TODO better way of determining when to parse SPACE tokens
         cleaned_tokens = []
         for i in range(len(self.tokens)):
             current_token = self.tokens[i]
@@ -116,9 +122,14 @@ class Lexer:
                     if left.type in (TokenType.HTML_ELEMENT, TokenType.IDENTIFIER, TokenType.STAR) and right.type in (
                             TokenType.CLASS_PREFIX, TokenType.ID_PREFIX, TokenType.HTML_ELEMENT, TokenType.STAR):
                         cleaned_tokens.append(current_token)
-            else:
+            elif self.keep_eof or current_token.type != TokenType.EOF:
                 cleaned_tokens.append(current_token)
+
         self.tokens = cleaned_tokens
+        for token in self.tokens:
+            self.token_types.append(token.type)
+            self.token_values.append(token.value)
+            self.token_pairs.append((token.type, token.value))
 
     def _parse_next_token(self) -> None:
         while self.current_char is not None:
@@ -249,7 +260,7 @@ class Lexer:
 
 
 def is_identifier_start(c: str) -> bool:
-    return c.isalpha()
+    return c.isalpha() or c in '_-'  # TODO differentiate from double hyphen for variable definition
 
 
 def is_identifier(c: str) -> bool:

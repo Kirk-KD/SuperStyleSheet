@@ -1,10 +1,10 @@
 from typing import List, Tuple, TYPE_CHECKING
 from collections.abc import Iterable
 
-from src.superss import Token, TokenType, STYLE_BEGIN, COMBINATORS, ATTRIBUTE_OPERATORS
+from superss import Token, TokenType, STYLE_BEGIN, COMBINATORS, ATTRIBUTE_OPERATORS
 
 if TYPE_CHECKING:
-    from src.superss import Compiler
+    from superss import Compiler
 
 
 class Node:
@@ -45,7 +45,7 @@ class StyleNode(CSSNode):
              for identifier in self.mixin_list.identifiers] + [properties]) \
             if self.mixin_list is not None else properties
 
-        self_css = selector + ' {\n' + all_properties + '\n}'
+        self_css = selector + (' {\n' + all_properties + '\n}' if all_properties else ' {}')
 
         for child in self.style_body_node.children_style_nodes:
             self_css += '\n' + child.parse_css(compiler)
@@ -297,7 +297,7 @@ class Parser:
 
         first_node = self._make_selector_sequence_node()
         pairs = []
-        while self.current_token.type in COMBINATORS:
+        while self.current_token.type in COMBINATORS + [TokenType.SPACE]:
             combinator = self.current_token
             self._type_check_and_advance()
             selector_sequence_node = self._make_selector_sequence_node()
