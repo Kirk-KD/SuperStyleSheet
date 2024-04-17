@@ -1,7 +1,7 @@
 from typing import List, Tuple, TYPE_CHECKING
 from collections.abc import Iterable
 
-from superss import Token, TokenType, STYLE_BEGIN, COMBINATORS, ATTRIBUTE_OPERATORS
+from superss import Token, TokenType, STYLE_BEGIN, COMBINATORS, ATTRIBUTE_OPERATORS, CSS_SELECTOR_NAMES, IDENTIFIERS
 
 if TYPE_CHECKING:
     from superss import Compiler
@@ -242,7 +242,7 @@ class Parser:
     def _make_mixin_def(self) -> MixinDefNode:
         self._type_check_and_advance()
         symbol = self.current_token
-        self._type_check_and_advance(TokenType.IDENTIFIER)
+        self._type_check_and_advance()
         style_body = self._make_style_body()
         return MixinDefNode(symbol, style_body)
 
@@ -335,7 +335,7 @@ class Parser:
 
     def _make_selector_sequence_node(self) -> SelectorSequenceNode:
         tokens = []
-        while self.current_token.type in STYLE_BEGIN + [TokenType.IDENTIFIER]:
+        while self.current_token.type in STYLE_BEGIN + IDENTIFIERS:
             tokens.append(self.current_token)
             self._type_check_and_advance()
 
@@ -343,7 +343,7 @@ class Parser:
 
     def _make_identifier_list_node(self) -> IdentifierListNode:
         identifiers = [self.current_token]
-        self._type_check_and_advance(TokenType.IDENTIFIER)
+        self._type_check_and_advance(IDENTIFIERS)
         while self.current_token.type == TokenType.COMMA:
             self._type_check_and_advance()
             identifiers.append(self.current_token)

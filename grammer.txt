@@ -1,31 +1,17 @@
 statement ::= style | mixin_def | alias_def
-style ::= css_selector ['using' identifier_list] style_block
 
-css_selector ::= css_single_selector (',' css_single_selector)*
-css_single_selector ::= css_selector_sequence (css_combinator css_selector_sequence)*
-css_combinator ::= '+' | '~' | '>'
-css_selector_sequence ::= css_type_selector? css_id_selector? css_class_selector* css_attribute_selector* css_pseudo_class? css_pseudo_element?
-css_type_selector ::= ELEMENT | '*'
-css_id_selector ::= '#' IDENTIFIER
-css_class_selector ::= '.' CHAINABLE_IDENTIFIER
-css_attribute_selector ::= '[' css_attribute ']'
-css_attribute ::= IDENTIFIER (('=' | '|=' | '$=' | '^=' | '*=') (IDENTIFIER | STRING))?
-css_pseudo_class ::= ':' IDENTIFIER ('(' (IDENTIFIER | STRING)? ')')?
-css_pseudo_element ::= '::' IDENTIFIER
+style ::= selector ('using' identifier_list)? style_body
+selector ::= single_selector (',' single_selector)*
+pseudo_element ::= ':' ID attribute_selector*
+pseudo_class ::= '::' ID attribute_selector*
+attribute_selector ::= '[' ID (('=' | '~=' | '|=' | '*=' | '$=' | '^=') (ID | STRING))? ']'
+single_selector ::= selector_sequence pseudo_element? pseudo_class? (COMBINATOR selector_sequence pseudo_element? pseudo_class?)*
+selector_sequence ::= (ELEMENT | '*')? attribute_selector* ((('.' ID) | ('#' ID)) attribute_selector*)*
+style_body ::= '{' (css_property | COMBINATOR? style) ((css_property | COMBINATOR? style) ';')* '}'
+css_property ::= PROPERTY ':' PROPERTY_VALUE
 
-child_style ::= css_combinator? style
-style_block ::= '{' property_list SEPARATOR? '}'
-property_list ::= (property | child_style) (SEPARATOR (property | style_block))*
-property ::= PROPERTY ':' ANY* SEPARATOR
+mixin_def ::= 'mixin' ID style_body
 
-mixin_def ::= 'mixin' IDENTIFIER style_block
-alias_def ::= 'alias' css_selector 'as' IDENTIFIER
+alias_def ::= 'alias' ID 'as' selector ('using' selector_list)?
 
-identifier_list ::= IDENTIFIER (',' IDENTIFIER)*
-
-
-IDENTIFIER = anything named
-ELEMENT = HTML element
-PROPERTY = CSS property
-ANY = anything
-SEPARATOR = new line or ';'
+identifier_list ::= ID (',' ID)*
