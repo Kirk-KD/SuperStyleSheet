@@ -119,8 +119,9 @@ class Lexer:
                 if 0 < i < len(self.tokens):
                     left = self.tokens[i - 1]
                     right = self.tokens[i + 1]
-                    if left.type in (TokenType.HTML_ELEMENT, TokenType.IDENTIFIER, TokenType.STAR) and right.type in (
-                            TokenType.CLASS_PREFIX, TokenType.ID_PREFIX, TokenType.HTML_ELEMENT, TokenType.STAR):
+                    if (left.type in (TokenType.HTML_ELEMENT, TokenType.IDENTIFIER, TokenType.STAR, TokenType.SQUARE_R)
+                            and right.type in
+                            (TokenType.CLASS_PREFIX, TokenType.ID_PREFIX, TokenType.HTML_ELEMENT, TokenType.STAR)):
                         cleaned_tokens.append(current_token)
             elif self.keep_eof or current_token.type != TokenType.EOF:
                 cleaned_tokens.append(current_token)

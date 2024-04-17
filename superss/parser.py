@@ -2,211 +2,10 @@ from typing import List, Tuple, TYPE_CHECKING
 from collections.abc import Iterable
 
 from superss import Token, TokenType, STYLE_BEGIN, COMBINATORS, ATTRIBUTE_OPERATORS
+from superss.nodes import *
 
 if TYPE_CHECKING:
     from superss import Compiler
-
-
-class Node:
-    pass
-
-
-class CSSNode(Node):
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        raise NotImplemented
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        raise NotImplemented
-
-
-class RootNode(CSSNode):
-    def __init__(self, statements: List[Node]):
-        self.statements: List[Node] = statements
-
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        return '\n'.join([stmt.parse_css(compiler) for stmt in self.statements if isinstance(stmt, CSSNode)])
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        return ''.join([stmt.parse_min_css(compiler) for stmt in self.statements if isinstance(stmt, CSSNode)])
-
-
-class StyleNode(CSSNode):
-    def __init__(self, selector_node: 'SelectorNode', style_body_node: 'StyleBodyNode',
-                 mixin_list: 'IdentifierListNode | None' = None):
-        self.selector_node: 'SelectorNode' = selector_node
-        self.mixin_list: 'IdentifierListNode | None' = mixin_list
-        self.style_body_node: 'StyleBodyNode' = style_body_node
-
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        selector = self.selector_node.parse_css()
-        properties = self.style_body_node.parse_css()
-        all_properties = ';\n'.join(
-            [compiler.get_mixin(identifier.value).parse_css()
-             for identifier in self.mixin_list.identifiers] + [properties]) \
-            if self.mixin_list is not None else properties
-
-        self_css = selector + (' {\n' + all_properties + '\n}' if all_properties else ' {}')
-
-        for child in self.style_body_node.children_style_nodes:
-            self_css += '\n' + child.parse_css(compiler)
-
-        return self_css
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        selector = self.selector_node.parse_min_css()
-        properties = self.style_body_node.parse_min_css()
-        all_properties = ';'.join(
-            [compiler.get_mixin(identifier.value).parse_min_css()
-             for identifier in self.mixin_list.identifiers] + [properties]) \
-            if self.mixin_list is not None else properties
-
-        self_css = selector + '{' + all_properties + '}'
-
-        for child in self.style_body_node.children_style_nodes:
-            self_css += child.parse_min_css(compiler)
-
-        return self_css
-
-
-class PropertyNode(CSSNode):
-    def __init__(self, property_token: Token, property_value_token: Token):
-        self.property_token: Token = property_token
-        self.property_value_token: Token = property_value_token
-
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        return f'  {self.property_token.value}: {self.property_value_token.value}'
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        return f'{self.property_token.value}:{self.property_value_token.value}'
-
-
-class SelectorNode(CSSNode):
-    def __init__(self, single_selector_nodes: 'List[SingleSelectorNode]', parent_selector_node: 'SelectorNode | None'):
-        self.single_selector_nodes: 'List[SingleSelectorNode]' = single_selector_nodes
-        self.parent_selector_node: 'SelectorNode | None' = parent_selector_node
-
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        return ', '.join(self.parse_list_css(compiler))
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        return ','.join(self.parse_list_min_css(compiler))
-
-    def parse_list_css(self, compiler: 'Compiler' = None) -> List[str]:
-        if self.parent_selector_node is None:
-            return [single_selector.parse_css(compiler) for single_selector in self.single_selector_nodes]
-
-        combinations = []
-        for parent_selector_string in self.parent_selector_node.parse_list_css():
-            for single_selector in self.single_selector_nodes:
-                single_css = single_selector.parse_css(compiler)
-                space = ' ' if single_css[0] not in '+~>' else ''
-                combinations.append(parent_selector_string + space + single_css)
-        return combinations
-
-    def parse_list_min_css(self, compiler: 'Compiler' = None) -> List[str]:
-        if self.parent_selector_node is None:
-            return [single_selector.parse_min_css(compiler) for single_selector in self.single_selector_nodes]
-
-        combinations = []
-        for parent_selector_string in self.parent_selector_node.parse_list_min_css():
-            for single_selector in self.single_selector_nodes:
-                single_css = single_selector.parse_min_css(compiler)
-                space = ' ' if single_css[0] not in '+~>' else ''
-                combinations.append(parent_selector_string + space + single_css)
-        return combinations
-
-
-class SingleSelectorNode(CSSNode):
-    def __init__(self,
-                 first_selector_sequence_node: 'SelectorSequenceNode',
-                 combinator_selector_list: 'List[Tuple[Token, SelectorSequenceNode]]',
-                 parent_combinator: 'Token | None',
-                 pseudo_class_identifier: 'Token | None',
-                 pseudo_element_identifier: 'Token | None',
-                 attribute_selectors: 'List[AttributeSelectorNode] | None'):
-        self.first_selector_sequence_node: 'SelectorSequenceNode' = first_selector_sequence_node
-        self.combinator_selector_list: 'List[Tuple[Token, SelectorSequenceNode]]' = combinator_selector_list
-        self.parent_combinator: 'Token | None' = parent_combinator
-        self.pseudo_class_identifier: 'Token | None' = pseudo_class_identifier
-        self.pseudo_element_identifier: 'Token | None' = pseudo_element_identifier
-        self.attribute_selectors: 'List[AttributeSelectorNode] | None' = attribute_selectors
-
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        combinator = self.parent_combinator.value if self.parent_combinator is not None else ''
-        css = combinator + self.first_selector_sequence_node.parse_css()
-        for combinator, selector in self.combinator_selector_list:
-            comb = (' ' + combinator.value + ' ') if combinator.type != TokenType.SPACE else ' '
-            css += f'{comb}{selector.parse_css()}'
-        if self.pseudo_class_identifier is not None:
-            css += ':' + self.pseudo_class_identifier.value
-        if self.pseudo_element_identifier is not None:
-            css += '::' + self.pseudo_element_identifier.value
-        for attr in self.attribute_selectors:
-            css += attr.parse_css(compiler)
-        return css
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        combinator = self.parent_combinator.value if self.parent_combinator is not None else ''
-        css = combinator + self.first_selector_sequence_node.parse_min_css()
-        for combinator, selector in self.combinator_selector_list:
-            comb = combinator.value
-            css += f'{comb}{selector.parse_min_css()}'
-        if self.pseudo_class_identifier is not None:
-            css += ':' + self.pseudo_class_identifier.value
-        if self.pseudo_element_identifier is not None:
-            css += '::' + self.pseudo_element_identifier.value
-        for attr in self.attribute_selectors:
-            css += attr.parse_min_css(compiler)
-        return css
-
-
-class AttributeSelectorNode(CSSNode):
-    def __init__(self, attribute: Token, operator: Token, value: Token):
-        self.attribute = attribute
-        self.operator = operator
-        self.value = value
-
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        value = f'"{self.value.value}"' if self.value.type == TokenType.STRING else self.value.value
-        return f'[{self.attribute.value} {self.operator.value} {value}]'
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        value = f'"{self.value.value}"' if self.value.type == TokenType.STRING else self.value.value
-        return f'[{self.attribute.value}{self.operator.value}{value}]'
-
-
-class SelectorSequenceNode(CSSNode):
-    def __init__(self, sequence: List[Token]):
-        self.sequence: List[Token] = sequence
-
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        return ''.join([token.value for token in self.sequence])
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        return self.parse_css()
-
-
-class StyleBodyNode(CSSNode):
-    def __init__(self, property_nodes: 'List[PropertyNode]', children_style_nodes: 'List[StyleNode]'):
-        self.property_nodes = property_nodes
-        self.children_style_nodes = children_style_nodes
-
-    def parse_css(self, compiler: 'Compiler' = None) -> str:
-        return ';\n'.join([prop.parse_css() for prop in self.property_nodes])
-
-    def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        return ';'.join([prop.parse_min_css() for prop in self.property_nodes])
-
-
-class MixinDefNode(Node):
-    def __init__(self, symbol: Token, style_body_node: StyleBodyNode):
-        self.symbol = symbol
-        self.style_body_node = style_body_node
-
-
-class IdentifierListNode(Node):
-    def __init__(self, identifiers: List[Token]):
-        self.identifiers = identifiers
 
 
 class Parser:
@@ -232,7 +31,7 @@ class Parser:
         statements = []
 
         while self.current_token.type != TokenType.EOF:
-            if self.current_token.type in STYLE_BEGIN:
+            if self.current_token.type in STYLE_BEGIN + [TokenType.SQUARE_L]:
                 statements.append(self._make_style())
             elif self.current_token.type == TokenType.MIXIN:
                 statements.append(self._make_mixin_def())
@@ -303,33 +102,20 @@ class Parser:
             selector_sequence_node = self._make_selector_sequence_node()
             pairs.append((combinator, selector_sequence_node))
 
-        pseudo_class_identifier = pseudo_element_identifier = None
-
-        if self.current_token.type == TokenType.SINGLE_COLON:
-            self._type_check_and_advance()
-            pseudo_class_identifier = self.current_token
-            self._type_check_and_advance(TokenType.IDENTIFIER)
-
-        if self.current_token.type == TokenType.PSEUDO_ELEMENT:
-            self._type_check_and_advance()
-            pseudo_element_identifier = self.current_token
-            self._type_check_and_advance(TokenType.IDENTIFIER)
-
-        attr_selectors = []
-        while self.current_token.type == TokenType.SQUARE_L:
-            attr_selectors.append(self._make_attribute_selector_node())
-
-        return SingleSelectorNode(first_node, pairs, parent_combinator, pseudo_class_identifier,
-                                  pseudo_element_identifier, attr_selectors)
+        return SingleSelectorNode(first_node, pairs, parent_combinator)
 
     def _make_attribute_selector_node(self) -> AttributeSelectorNode:
         self._type_check_and_advance(TokenType.SQUARE_L)
         attr = self.current_token
         self._type_check_and_advance(TokenType.IDENTIFIER)
-        op = self.current_token
-        self._type_check_and_advance(ATTRIBUTE_OPERATORS)
-        val = self.current_token
-        self._type_check_and_advance((TokenType.STRING, TokenType.IDENTIFIER))
+
+        op = val = None
+        if self.current_token.type in ATTRIBUTE_OPERATORS:
+            op = self.current_token
+            self._type_check_and_advance(ATTRIBUTE_OPERATORS)
+            val = self.current_token
+            self._type_check_and_advance((TokenType.STRING, TokenType.IDENTIFIER))
+
         self._type_check_and_advance(TokenType.SQUARE_R)
         return AttributeSelectorNode(attr, op, val)
 
@@ -339,7 +125,37 @@ class Parser:
             tokens.append(self.current_token)
             self._type_check_and_advance()
 
-        return SelectorSequenceNode(tokens)
+        pseudo_class_node = pseudo_element_node = None
+        attr_selectors = []
+
+        while self.current_token.type == TokenType.SQUARE_L:
+            attr_selectors.append(self._make_attribute_selector_node())
+
+        if self.current_token.type == TokenType.SINGLE_COLON:
+            pseudo_class_node = self._make_pseudo_class_node()
+
+        if self.current_token.type == TokenType.PSEUDO_ELEMENT:
+            pseudo_element_node = self._make_pseudo_element_node()
+
+        return SelectorSequenceNode(tokens, pseudo_class_node, pseudo_element_node, attr_selectors)
+
+    def _make_pseudo_class_node(self) -> PseudoClassNode:
+        self._type_check_and_advance(TokenType.SINGLE_COLON)
+        identifier = self.current_token
+        self._type_check_and_advance(TokenType.IDENTIFIER)
+        attr_selectors = []
+        if self.current_token.type == TokenType.SQUARE_L:
+            attr_selectors.append(self._make_attribute_selector_node())
+        return PseudoClassNode(identifier, attr_selectors)
+
+    def _make_pseudo_element_node(self) -> PseudoElementNode:
+        self._type_check_and_advance(TokenType.PSEUDO_ELEMENT)
+        identifier = self.current_token
+        self._type_check_and_advance(TokenType.IDENTIFIER)
+        attr_selectors = []
+        if self.current_token.type == TokenType.SQUARE_L:
+            attr_selectors.append(self._make_attribute_selector_node())
+        return PseudoElementNode(identifier, attr_selectors)
 
     def _make_identifier_list_node(self) -> IdentifierListNode:
         identifiers = [self.current_token]
