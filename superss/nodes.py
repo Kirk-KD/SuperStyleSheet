@@ -117,10 +117,12 @@ class SingleSelectorNode(CSSNode):
     def __init__(self,
                  first_selector_sequence_node: 'SelectorSequenceNode',
                  combinator_selector_list: 'List[Tuple[Token, SelectorSequenceNode]]',
-                 parent_combinator: 'Token | None'):
+                 parent_combinator: 'Token | None',
+                 pseudo_element_node: 'PseudoElementNode | None'):
         self.first_selector_sequence_node: 'SelectorSequenceNode' = first_selector_sequence_node
         self.combinator_selector_list: 'List[Tuple[Token, SelectorSequenceNode]]' = combinator_selector_list
         self.parent_combinator: 'Token | None' = parent_combinator
+        self.pseudo_element_node: 'PseudoElementNode | None' = pseudo_element_node
 
     def parse_css(self, compiler: 'Compiler' = None) -> str:
         combinator = self.parent_combinator.value if self.parent_combinator is not None else ''
@@ -128,6 +130,8 @@ class SingleSelectorNode(CSSNode):
         for combinator, selector in self.combinator_selector_list:
             comb = (' ' + combinator.value + ' ') if combinator.type != TokenType.SPACE else ' '
             css += f'{comb}{selector.parse_css()}'
+        if self.pseudo_element_node is not None:
+            css += self.pseudo_element_node.parse_css(compiler)
         return css
 
     def parse_min_css(self, compiler: 'Compiler' = None) -> str:
@@ -136,6 +140,8 @@ class SingleSelectorNode(CSSNode):
         for combinator, selector in self.combinator_selector_list:
             comb = combinator.value
             css += f'{comb}{selector.parse_min_css()}'
+        if self.pseudo_element_node is not None:
+            css += self.pseudo_element_node.parse_min_css(compiler)
         return css
 
 
@@ -159,32 +165,27 @@ class AttributeSelectorNode(CSSNode):
 
 
 class SelectorSequenceNode(CSSNode):
-    def __init__(self, sequence: List[Token], pseudo_class_node: 'Token | None' = None,
-                 pseudo_element_node: 'Token | None' = None,
-                 attribute_selectors: 'List[AttributeSelectorNode] | None' = None):
+    def __init__(self, sequence: List[Token],
+                 attribute_selectors: 'List[AttributeSelectorNode]',
+                 pseudo_class_nodes: 'List[PseudoClassNode]'):
         self.sequence: List[Token] = sequence
-        self.pseudo_class_node: 'PseudoClassNode | None' = pseudo_class_node
-        self.pseudo_element_node: 'PseudoElementNode | None' = pseudo_element_node
-        self.attribute_selectors: 'List[AttributeSelectorNode] | None' = attribute_selectors
+        self.attribute_selectors: 'List[AttributeSelectorNode]' = attribute_selectors
+        self.pseudo_class_nodes: 'List[PseudoClassNode]' = pseudo_class_nodes
 
     def parse_css(self, compiler: 'Compiler' = None) -> str:
         css = ''.join([token.value for token in self.sequence])
         for attr in self.attribute_selectors:
             css += attr.parse_css(compiler)
-        if self.pseudo_class_node is not None:
-            css += self.pseudo_class_node.parse_css(compiler)
-        if self.pseudo_element_node is not None:
-            css += self.pseudo_element_node.parse_css(compiler)
+        for pseudo in self.pseudo_class_nodes:
+            css += pseudo.parse_css(compiler)
         return css
 
     def parse_min_css(self, compiler: 'Compiler' = None) -> str:
         css = ''.join([token.value for token in self.sequence])
         for attr in self.attribute_selectors:
             css += attr.parse_min_css(compiler)
-        if self.pseudo_class_node is not None:
-            css += self.pseudo_class_node.parse_min_css(compiler)
-        if self.pseudo_element_node is not None:
-            css += self.pseudo_element_node.parse_min_css(compiler)
+        for pseudo in self.pseudo_class_nodes:
+            css += pseudo.parse_min_css(compiler)
         return css
 
 

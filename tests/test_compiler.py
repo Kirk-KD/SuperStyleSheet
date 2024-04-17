@@ -31,11 +31,16 @@ class TestCompiler(unittest.TestCase):
     def test_pseudo_class_and_element(self):
         self._test_compiler('div:first-child {}', 'div:first-child{}')
         self._test_compiler('*.test:hover::first-letter {}', '*.test:hover::first-letter{}')
-        self._test_compiler('a:first-child div::before>#testing {}',
-                            'a:first-child div::before>#testing{}')
+        self._test_compiler('a:first-child div>#testing::before {}',
+                            'a:first-child div>#testing::before{}')
+        self._test_compiler('div:first-child:hover:active:focus-invisible:empty {}',
+                            'div:first-child:hover:active:focus-invisible:empty{}')
+        self._test_compiler(':root {}', ':root{}')
 
     def test_attr_selector(self):
         self._test_compiler('a[href$=".pdf"] ~ div::before {}', 'a[href$=".pdf"]~div::before{}')
         self._test_compiler('[onclick]:hover {}', '[onclick]:hover{}')
         self._test_compiler('#button   :first-child [  onclick  ]  >a:first-child[onclick= "#"] .text:: first-letter{}',
                             '#button:first-child[onclick]>a:first-child[onclick="#"] .text::first-letter{}')
+        self._test_compiler('.test[onclick]:first-child[href="#"]::first-letter {}',
+                            '.test[onclick]:first-child[href="#"]::first-letter{}')

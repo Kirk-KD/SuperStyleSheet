@@ -5,8 +5,8 @@ selector ::= single_selector (',' single_selector)*
 pseudo_element ::= ':' ID attribute_selector*
 pseudo_class ::= '::' ID attribute_selector*
 attribute_selector ::= '[' ID (('=' | '~=' | '|=' | '*=' | '$=' | '^=') (ID | STRING))? ']'
-single_selector ::= selector_sequence pseudo_element? pseudo_class? (COMBINATOR selector_sequence pseudo_element? pseudo_class?)*
-selector_sequence ::= (ELEMENT | '*')? attribute_selector* ((('.' ID) | ('#' ID)) attribute_selector*)*
+single_selector ::= selector_sequence? (COMBINATOR selector_sequence)* pseudo_element?
+selector_sequence ::= (ELEMENT | '*')? attribute_selector* ((('.' ID) | ('#' ID)) attribute_selector*)* pseudo_class*
 style_body ::= '{' (css_property | COMBINATOR? style) ((css_property | COMBINATOR? style) ';')* '}'
 css_property ::= PROPERTY ':' PROPERTY_VALUE
 

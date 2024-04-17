@@ -31,7 +31,7 @@ class Parser:
         statements = []
 
         while self.current_token.type != TokenType.EOF:
-            if self.current_token.type in STYLE_BEGIN + [TokenType.SQUARE_L]:
+            if self.current_token.type in STYLE_BEGIN + [TokenType.SQUARE_L, TokenType.SINGLE_COLON]:
                 statements.append(self._make_style())
             elif self.current_token.type == TokenType.MIXIN:
                 statements.append(self._make_mixin_def())
@@ -102,7 +102,11 @@ class Parser:
             selector_sequence_node = self._make_selector_sequence_node()
             pairs.append((combinator, selector_sequence_node))
 
-        return SingleSelectorNode(first_node, pairs, parent_combinator)
+        pseudo_element = None
+        if self.current_token.type == TokenType.PSEUDO_ELEMENT:
+            pseudo_element = self._make_pseudo_element_node()
+
+        return SingleSelectorNode(first_node, pairs, parent_combinator, pseudo_element)
 
     def _make_attribute_selector_node(self) -> AttributeSelectorNode:
         self._type_check_and_advance(TokenType.SQUARE_L)
@@ -125,19 +129,16 @@ class Parser:
             tokens.append(self.current_token)
             self._type_check_and_advance()
 
-        pseudo_class_node = pseudo_element_node = None
+        pseudo_class_nodes = []
         attr_selectors = []
 
         while self.current_token.type == TokenType.SQUARE_L:
             attr_selectors.append(self._make_attribute_selector_node())
 
-        if self.current_token.type == TokenType.SINGLE_COLON:
-            pseudo_class_node = self._make_pseudo_class_node()
+        while self.current_token.type == TokenType.SINGLE_COLON:
+            pseudo_class_nodes.append(self._make_pseudo_class_node())
 
-        if self.current_token.type == TokenType.PSEUDO_ELEMENT:
-            pseudo_element_node = self._make_pseudo_element_node()
-
-        return SelectorSequenceNode(tokens, pseudo_class_node, pseudo_element_node, attr_selectors)
+        return SelectorSequenceNode(tokens, attr_selectors, pseudo_class_nodes)
 
     def _make_pseudo_class_node(self) -> PseudoClassNode:
         self._type_check_and_advance(TokenType.SINGLE_COLON)
