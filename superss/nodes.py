@@ -21,10 +21,10 @@ class RootNode(CSSNode):
         self.statements: List[Node] = statements
 
     def parse_css(self, compiler: 'Compiler' = None) -> str:
-        return '\n'.join([stmt.parse_css(compiler) for stmt in self.statements if isinstance(stmt, CSSNode)])
+        return '\n'.join(sorted([stmt.parse_css(compiler) for stmt in self.statements if isinstance(stmt, CSSNode)]))
 
     def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        return ''.join([stmt.parse_min_css(compiler) for stmt in self.statements if isinstance(stmt, CSSNode)])
+        return ''.join(sorted([stmt.parse_min_css(compiler) for stmt in self.statements if isinstance(stmt, CSSNode)]))
 
 
 class StyleNode(CSSNode):
@@ -35,34 +35,32 @@ class StyleNode(CSSNode):
         self.style_body_node: 'StyleBodyNode' = style_body_node
 
     def parse_css(self, compiler: 'Compiler' = None) -> str:
-        selector = self.selector_node.parse_css()
-        properties = self.style_body_node.parse_css()
-        all_properties = ';\n'.join(
-            [compiler.get_mixin(identifier.value).parse_css()
-             for identifier in self.mixin_list.identifiers] + [properties]) \
-            if self.mixin_list is not None else properties
+        selector = self.selector_node.parse_css(compiler)
+        properties = self.style_body_node.parse_list_css(compiler)
+        if self.mixin_list is not None:
+            for identifier in self.mixin_list.identifiers:
+                properties += compiler.get_mixin(identifier.value).parse_list_css(compiler)
 
-        self_css = selector + (' {\n' + all_properties + '\n}' if all_properties else ' {}')
+        styles = [selector + (' {\n' + ';\n'.join(sorted(properties)) + '\n}' if properties else ' {}')]
 
         for child in self.style_body_node.children_style_nodes:
-            self_css += '\n' + child.parse_css(compiler)
+            styles.append(child.parse_css(compiler))
 
-        return self_css
+        return '\n'.join(sorted(styles))
 
     def parse_min_css(self, compiler: 'Compiler' = None) -> str:
-        selector = self.selector_node.parse_min_css()
-        properties = self.style_body_node.parse_min_css()
-        all_properties = ';'.join(
-            [compiler.get_mixin(identifier.value).parse_min_css()
-             for identifier in self.mixin_list.identifiers] + [properties]) \
-            if self.mixin_list is not None else properties
+        selector = self.selector_node.parse_min_css(compiler)
+        properties = self.style_body_node.parse_list_min_css(compiler)
+        if self.mixin_list is not None:
+            for identifier in self.mixin_list.identifiers:
+                properties += compiler.get_mixin(identifier.value).parse_list_min_css(compiler)
 
-        self_css = selector + '{' + all_properties + '}'
+        styles = [selector + ('{' + ';'.join(sorted(properties)) + '}' if properties else '{}')]
 
         for child in self.style_body_node.children_style_nodes:
-            self_css += child.parse_min_css(compiler)
+            styles.append(child.parse_min_css(compiler))
 
-        return self_css
+        return ''.join(sorted(styles))
 
 
 class PropertyNode(CSSNode):
@@ -223,6 +221,12 @@ class StyleBodyNode(CSSNode):
 
     def parse_min_css(self, compiler: 'Compiler' = None) -> str:
         return ';'.join([prop.parse_min_css() for prop in self.property_nodes])
+
+    def parse_list_css(self, compiler: 'Compiler' = None) -> List[str]:
+        return [p.parse_css(compiler) for p in self.property_nodes]
+
+    def parse_list_min_css(self, compiler: 'Compiler' = None) -> List[str]:
+        return [p.parse_min_css(compiler) for p in self.property_nodes]
 
 
 class MixinDefNode(Node):
