@@ -1,7 +1,7 @@
 from typing import List, Tuple, TYPE_CHECKING
 from collections.abc import Iterable
 
-from superss import Token, TokenType, STYLE_BEGIN, COMBINATORS, ATTRIBUTE_OPERATORS
+from superss import Token, TokenType, STYLE_BEGIN, COMBINATORS, ATTRIBUTE_OPERATORS, IDENTIFIERS
 from superss.nodes import *
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ class Parser:
     def _make_mixin_def(self) -> MixinDefNode:
         self._type_check_and_advance()
         symbol = self.current_token
-        self._type_check_and_advance(TokenType.IDENTIFIER)
+        self._type_check_and_advance(IDENTIFIERS)
         style_body = self._make_style_body()
         return MixinDefNode(symbol, style_body)
 
