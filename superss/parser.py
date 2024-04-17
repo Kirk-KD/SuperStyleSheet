@@ -121,7 +121,7 @@ class Parser:
 
     def _make_selector_sequence_node(self) -> SelectorSequenceNode:
         tokens = []
-        while self.current_token.type in STYLE_BEGIN + [TokenType.IDENTIFIER]:
+        while self.current_token.type in STYLE_BEGIN + IDENTIFIERS:
             tokens.append(self.current_token)
             self._type_check_and_advance()
 
@@ -159,7 +159,7 @@ class Parser:
 
     def _make_identifier_list_node(self) -> IdentifierListNode:
         identifiers = [self.current_token]
-        self._type_check_and_advance(TokenType.IDENTIFIER)
+        self._type_check_and_advance(IDENTIFIERS)
         while self.current_token.type == TokenType.COMMA:
             self._type_check_and_advance()
             identifiers.append(self.current_token)
