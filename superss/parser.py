@@ -35,8 +35,18 @@ class Parser:
                 statements.append(self._make_style())
             elif self.current_token.type == TokenType.MIXIN:
                 statements.append(self._make_mixin_def())
+            elif self.current_token.type == TokenType.ALIAS:
+                statements.append(self._make_alias_def())
 
         return RootNode(statements)
+
+    def _make_alias_def(self):
+        self._type_check_and_advance(TokenType.ALIAS)
+        symbol = self.current_token
+        self._type_check_and_advance(IDENTIFIERS)
+        self._type_check_and_advance(TokenType.AS)
+        selector = self._make_selector_node(None)
+        return AliasDefNode(symbol, selector)
 
     def _make_mixin_def(self) -> MixinDefNode:
         self._type_check_and_advance()

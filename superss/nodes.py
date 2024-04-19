@@ -5,7 +5,14 @@ if TYPE_CHECKING:
 
 
 class Node:
-    pass
+    def __str__(self) -> str:
+        pairs = []
+        for attr, val in self.__dict__.items():
+            pairs.append(f'{attr} = {str(val)}')
+        return f'{self.__class__.__name__}({", ".join(pairs)})'
+
+    def __repr__(self) -> str:
+        return str(self)
 
 
 class CSSNode(Node):
@@ -39,7 +46,7 @@ class StyleNode(CSSNode):
         properties = self.style_body_node.parse_list_css(compiler)
         if self.mixin_list is not None:
             for identifier in self.mixin_list.identifiers:
-                properties += compiler.get_mixin(identifier.value).parse_list_css(compiler)
+                properties += compiler.get_mixin(identifier.value).style_body_node.parse_list_css(compiler)
 
         styles = [selector + (' {\n' + ';\n'.join(sorted(properties)) + '\n}' if properties else ' {}')]
 
@@ -53,7 +60,7 @@ class StyleNode(CSSNode):
         properties = self.style_body_node.parse_list_min_css(compiler)
         if self.mixin_list is not None:
             for identifier in self.mixin_list.identifiers:
-                properties += compiler.get_mixin(identifier.value).parse_list_min_css(compiler)
+                properties += compiler.get_mixin(identifier.value).style_body_node.parse_list_min_css(compiler)
 
         styles = [selector + ('{' + ';'.join(sorted(properties)) + '}' if properties else '{}')]
 
@@ -233,6 +240,12 @@ class MixinDefNode(Node):
     def __init__(self, symbol: Token, style_body_node: StyleBodyNode):
         self.symbol = symbol
         self.style_body_node = style_body_node
+
+
+class AliasDefNode(Node):
+    def __init__(self, symbol: Token, selector_node: 'SelectorNode | None'):
+        self.symbol = symbol
+        self.selector_node = selector_node
 
 
 class IdentifierListNode(Node):

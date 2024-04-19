@@ -12,6 +12,6 @@ css_property ::= PROPERTY ':' PROPERTY_VALUE
 
 mixin_def ::= 'mixin' ID style_body
 
-alias_def ::= 'alias' ID 'as' selector ('using' selector_list)?
+alias_def ::= 'alias' ID 'as' selector
 
 identifier_list ::= ID (',' ID)*

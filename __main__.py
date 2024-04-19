@@ -6,6 +6,9 @@ with open('examples/1.sss') as f:
 
     parser = Parser(lexer.tokens)
     root = parser.parse()
+
+    print('*** ROOT NODE ***\n', root.statements, '\n\n')
+
     compiler = Compiler(root)
 
     print('*** CSS ***\n' + compiler.compile_css(minified=False) + '\n\n')
